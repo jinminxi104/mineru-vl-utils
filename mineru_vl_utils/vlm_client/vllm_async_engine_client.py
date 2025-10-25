@@ -1,5 +1,6 @@
 import asyncio
 import uuid
+import random
 from io import BytesIO
 from typing import TYPE_CHECKING, Sequence
 
@@ -40,6 +41,7 @@ class VllmAsyncEngineVlmClient(VlmClient):
             allow_truncated_content=allow_truncated_content,
         )
 
+        '''
         try:
             from vllm import SamplingParams
             from vllm.sampling_params import RequestOutputKind
@@ -51,19 +53,20 @@ class VllmAsyncEngineVlmClient(VlmClient):
             raise ValueError("vllm_async_llm is None.")
         if not isinstance(vllm_async_llm, AsyncLLM):
             raise ValueError(f"vllm_async_llm must be an instance of {AsyncLLM}")
-
+        '''
         self.vllm_async_llm = vllm_async_llm
         if vllm_async_llm.tokenizer is None:
             raise ValueError("vllm_async_llm.tokenizer is None.")
 
         tokenizer = vllm_async_llm.tokenizer
-        if hasattr(tokenizer, "get_lora_tokenizer"):
-            tokenizer = tokenizer.get_lora_tokenizer()  # type: ignore
+        #if hasattr(tokenizer, "get_lora_tokenizer"):
+        #    tokenizer = tokenizer.get_lora_tokenizer()  # type: ignore
+        self.tokenizer = vllm_async_llm.tokenizer
 
-        self.tokenizer = tokenizer
-        self.model_max_length = vllm_async_llm.model_config.max_model_len
-        self.VllmSamplingParams = SamplingParams
-        self.VllmRequestOutputKind = RequestOutputKind
+        #self.tokenizer = tokenizer
+        #self.model_max_length = vllm_async_llm.model_config.max_model_len
+        #self.VllmSamplingParams = SamplingParams
+        #self.VllmRequestOutputKind = RequestOutputKind
         self.max_concurrency = max_concurrency
         self.debug = debug
 
@@ -119,6 +122,8 @@ class VllmAsyncEngineVlmClient(VlmClient):
         )
 
     def get_output_content(self, output: "RequestOutput") -> str:
+        print(output, flush=True)
+        return output
         if not output.finished:
             raise ServerError("The output generation was not finished.")
 
@@ -178,6 +183,7 @@ class VllmAsyncEngineVlmClient(VlmClient):
             image = Image.open(BytesIO(image))
         image = get_rgb_image(image)
 
+        '''
         chat_prompt: str = self.tokenizer.apply_chat_template(
             self.build_messages(prompt),  # type: ignore
             tokenize=False,
@@ -185,24 +191,33 @@ class VllmAsyncEngineVlmClient(VlmClient):
         )
 
         vllm_sp = self.build_vllm_sampling_params(sampling_params)
-
+        '''
+        vllm_prompts = [(prompt, image),]
         generate_kwargs = {}
         if priority is not None:
             generate_kwargs["priority"] = priority
 
         last_output = None
+        #import pdb; pdb.set_trace()
+        vllm_prompts = self.vllm_async_llm._convert_prompts(vllm_prompts)[0]
+        from lmdeploy import PytorchEngineConfig, GenerationConfig
+        gen_config = GenerationConfig(skip_special_tokens=False, max_new_tokens=8096)
+        final_output = ''
         async for output in self.vllm_async_llm.generate(
-            prompt={"prompt": chat_prompt, "multi_modal_data": {"image": image}},
-            sampling_params=vllm_sp,
-            request_id=str(uuid.uuid4()),
+            messages=vllm_prompts,
+            #prompt={"prompt": chat_prompt, "multi_modal_data": {"image": image}},
+            #sampling_params=vllm_sp,
+            gen_config = gen_config,
+            session_id=random.randint(0,100000000),
             **generate_kwargs,
         ):
-            last_output = output
+            final_output += output.response
 
-        if last_output is None:  # this should not happen
+        if final_output is None:  # this should not happen
             raise ServerError("No output from the server.")
+        print(f"Final output: {final_output}", flush=True)
 
-        return self.get_output_content(last_output)
+        return self.get_output_content(final_output)
 
     async def aio_batch_predict(
         self,

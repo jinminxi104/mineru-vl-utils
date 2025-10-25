@@ -41,6 +41,7 @@ class VllmEngineVlmClient(VlmClient):
             allow_truncated_content=allow_truncated_content,
         )
 
+        '''
         try:
             from vllm import LLM, SamplingParams
         except ImportError:
@@ -50,11 +51,13 @@ class VllmEngineVlmClient(VlmClient):
             raise ValueError("vllm_llm is None.")
         if not isinstance(vllm_llm, LLM):
             raise ValueError("vllm_llm must be an instance of vllm.LLM.")
+        '''
 
         self.vllm_llm = vllm_llm
-        self.tokenizer = vllm_llm.get_tokenizer()
-        self.model_max_length = vllm_llm.llm_engine.model_config.max_model_len
-        self.VllmSamplingParams = SamplingParams
+        #self.tokenizer = vllm_llm.get_tokenizer()
+        self.tokenizer = vllm_llm.tokenizer
+        #self.model_max_length = vllm_llm.llm_engine.model_config.max_model_len
+        #self.VllmSamplingParams = SamplingParams
         self.batch_size = batch_size
         self.use_tqdm = use_tqdm
         self.debug = debug
@@ -110,6 +113,7 @@ class VllmEngineVlmClient(VlmClient):
         )
 
     def get_output_content(self, output: "RequestOutput") -> str:
+        return output.text
         if not output.finished:
             raise ServerError("The output generation was not finished.")
 
@@ -166,28 +170,56 @@ class VllmEngineVlmClient(VlmClient):
             image = get_rgb_image(image)
             image_objs.append(image)
 
+        import pdb; pdb.set_trace()
         if isinstance(prompts, str):
             chat_prompts: list[str] = [
-                self.tokenizer.apply_chat_template(
-                    self.build_messages(prompts),  # type: ignore
-                    tokenize=False,
-                    add_generation_prompt=True,
-                )
+                prompts
+                #self.tokenizer.apply_chat_template(
+                #    self.build_messages(prompts),  # type: ignore
+                #    tokenize=False,
+                #    add_generation_prompt=True,
+                #)
             ] * len(images)
         else:  # isinstance(prompts, Sequence[str])
             chat_prompts: list[str] = [
-                self.tokenizer.apply_chat_template(
-                    self.build_messages(prompt),  # type: ignore
-                    tokenize=False,
-                    add_generation_prompt=True,
-                )
+                prompt
+                #self.tokenizer.apply_chat_template(
+                #    self.build_messages(prompt),  # type: ignore
+                #    tokenize=False,
+                #    add_generation_prompt=True,
+                #)
                 for prompt in prompts
             ]
 
+
+        '''
+        if isinstance(prompts, str):
+            chat_prompts = [(prompts, images)]
+        else:  # isinstance(prompts, Sequence[str])
+
+        image_objs: list[Image.Image] = []
+        for image in images:
+            if isinstance(image, str):
+                image = load_resource(image)
+            if not isinstance(image, Image.Image):
+                image = Image.open(BytesIO(image))
+            image = get_rgb_image(image)
+            image_objs.append(image)
+
+        if isinstance(prompts, str):
+            chat_prompts = [(prompts, images)]
+        else:  # isinstance(prompts, Sequence[str])
+            chat_prompts = list(zip(prompts, image_objs))
+
+        '''
+
+
+        '''
         if not isinstance(sampling_params, Sequence):
             vllm_sp_list = [self.build_vllm_sampling_params(sampling_params)] * len(images)
         else:
             vllm_sp_list = [self.build_vllm_sampling_params(sp) for sp in sampling_params]
+        '''
 
         outputs = []
         batch_size = self.batch_size if self.batch_size > 0 else len(images)
@@ -196,11 +228,11 @@ class VllmEngineVlmClient(VlmClient):
         for i in range(0, len(images), batch_size):
             batch_image_objs = image_objs[i : i + batch_size]
             batch_chat_prompts = chat_prompts[i : i + batch_size]
-            batch_sp_list = vllm_sp_list[i : i + batch_size]
+            #batch_sp_list = vllm_sp_list[i : i + batch_size]
             batch_outputs = self._predict_one_batch(
                 batch_image_objs,
                 batch_chat_prompts,
-                batch_sp_list,
+                #batch_sp_list,
             )
             outputs.extend(batch_outputs)
 
@@ -210,18 +242,30 @@ class VllmEngineVlmClient(VlmClient):
         self,
         image_objs: list[Image.Image],
         chat_prompts: list[str],
-        vllm_sampling_params: list["VllmSamplingParams"],
+        #vllm_sampling_params: list["VllmSamplingParams"],
     ):
+        import pdb; pdb.set_trace()
+        '''
         vllm_prompts = [
             {"prompt": chat_prompt, "multi_modal_data": {"image": image}}
             for chat_prompt, image in zip(chat_prompts, image_objs)
         ]
+        '''
+        vllm_prompts = list(zip(chat_prompts, image_objs))
+        import pdb; pdb.set_trace()
+        from lmdeploy import PytorchEngineConfig, GenerationConfig
+        gen=GenerationConfig(skip_special_tokens=False, max_new_tokens=8096)
+ 
 
+        outputs = self.vllm_llm.batch_infer(vllm_prompts, gen_config=gen)
+        '''
         outputs = self.vllm_llm.generate(
             prompts=vllm_prompts,  # type: ignore
             sampling_params=vllm_sampling_params,
             use_tqdm=self.use_tqdm,
         )
+        '''
+        import pdb; pdb.set_trace()
 
         return [self.get_output_content(output) for output in outputs]
 

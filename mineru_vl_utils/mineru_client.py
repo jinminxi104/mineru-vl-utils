@@ -317,6 +317,7 @@ class MinerUClient:
                     processor = AutoProcessor.from_pretrained(model_path, use_fast=True)
 
         elif backend == "vllm-engine":
+            '''
             if vllm_llm is None:
                 if not model_path:
                     raise ValueError("model_path must be provided when vllm_llm is None.")
@@ -327,12 +328,31 @@ class MinerUClient:
                     raise ImportError("Please install vllm to use the vllm-engine backend.")
 
                 vllm_llm = vllm.LLM(model_path)
+            '''
+            from lmdeploy.serve.vl_async_engine import VLAsyncEngine
+            from lmdeploy import PytorchEngineConfig, GenerationConfig
+            import pdb; pdb.set_trace()
+            from lmdeploy.model import ChatTemplateConfig
+            #ct = ChatTemplateConfig.from_json('/mnt/dev_share/share/MinerU2.5-2509-1.2B/chat_template.json')
+            vllm_llm = VLAsyncEngine(model_path, backend='pytorch',
+                                     backend_config=PytorchEngineConfig(tp=1,
+                                     cache_max_entry_count=0.8, max_batch_size=256,
+                                     device_type="ascend", eager_mode=True, session_len=16384))
 
         elif backend == "vllm-async-engine":
             if vllm_async_llm is None:
                 if not model_path:
                     raise ValueError("model_path must be provided when vllm_async_llm is None.")
+                from lmdeploy.serve.vl_async_engine import VLAsyncEngine
+                from lmdeploy import PytorchEngineConfig, GenerationConfig
+                import pdb; pdb.set_trace()
+                from lmdeploy.model import ChatTemplateConfig
+                vllm_async_llm = VLAsyncEngine(model_path, backend='pytorch',
+                                     backend_config=PytorchEngineConfig(tp=1,
+                                     cache_max_entry_count=0.8, max_batch_size=256,
+                                     device_type="ascend", eager_mode=True, session_len=16384))
 
+                '''
                 try:
                     from vllm.engine.arg_utils import AsyncEngineArgs
                     from vllm.v1.engine.async_llm import AsyncLLM
@@ -340,6 +360,7 @@ class MinerUClient:
                     raise ImportError("Please install vllm to use the vllm-async-engine backend.")
 
                 vllm_async_llm = AsyncLLM.from_engine_args(AsyncEngineArgs(model_path))
+                '''
 
         self.client = new_vlm_client(
             backend=backend,
