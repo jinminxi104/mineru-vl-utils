@@ -170,7 +170,7 @@ class VllmEngineVlmClient(VlmClient):
             image = get_rgb_image(image)
             image_objs.append(image)
 
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         if isinstance(prompts, str):
             chat_prompts: list[str] = [
                 prompts
@@ -244,7 +244,7 @@ class VllmEngineVlmClient(VlmClient):
         chat_prompts: list[str],
         #vllm_sampling_params: list["VllmSamplingParams"],
     ):
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         '''
         vllm_prompts = [
             {"prompt": chat_prompt, "multi_modal_data": {"image": image}}
@@ -252,9 +252,9 @@ class VllmEngineVlmClient(VlmClient):
         ]
         '''
         vllm_prompts = list(zip(chat_prompts, image_objs))
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         from lmdeploy import PytorchEngineConfig, GenerationConfig
-        gen=GenerationConfig(skip_special_tokens=False, max_new_tokens=8096)
+        gen=GenerationConfig(skip_special_tokens=False, max_new_tokens=8096, top_k=1, top_p=0.01, temperature=1.0, repetition_penalty=1.0, do_sample=True)
  
 
         outputs = self.vllm_llm.batch_infer(vllm_prompts, gen_config=gen)
@@ -265,7 +265,7 @@ class VllmEngineVlmClient(VlmClient):
             use_tqdm=self.use_tqdm,
         )
         '''
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
 
         return [self.get_output_content(output) for output in outputs]
 

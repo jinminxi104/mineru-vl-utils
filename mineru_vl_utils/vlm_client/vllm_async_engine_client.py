@@ -122,7 +122,7 @@ class VllmAsyncEngineVlmClient(VlmClient):
         )
 
     def get_output_content(self, output: "RequestOutput") -> str:
-        print(output, flush=True)
+        #print(output, flush=True)
         return output
         if not output.finished:
             raise ServerError("The output generation was not finished.")
@@ -215,7 +215,7 @@ class VllmAsyncEngineVlmClient(VlmClient):
 
         if final_output is None:  # this should not happen
             raise ServerError("No output from the server.")
-        print(f"Final output: {final_output}", flush=True)
+        #print(f"Final output: {final_output}", flush=True)
 
         return self.get_output_content(final_output)
 

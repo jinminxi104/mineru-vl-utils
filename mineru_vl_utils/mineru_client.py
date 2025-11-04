@@ -331,13 +331,11 @@ class MinerUClient:
             '''
             from lmdeploy.serve.vl_async_engine import VLAsyncEngine
             from lmdeploy import PytorchEngineConfig, GenerationConfig
-            import pdb; pdb.set_trace()
             from lmdeploy.model import ChatTemplateConfig
-            #ct = ChatTemplateConfig.from_json('/mnt/dev_share/share/MinerU2.5-2509-1.2B/chat_template.json')
             vllm_llm = VLAsyncEngine(model_path, backend='pytorch',
-                                     backend_config=PytorchEngineConfig(tp=1,
+                                     backend_config=PytorchEngineConfig(tp=1, block_size=128,
                                      cache_max_entry_count=0.8, max_batch_size=256,
-                                     device_type="ascend", eager_mode=True, session_len=16384))
+                                     device_type="ascend", eager_mode=True, session_len=8192))
 
         elif backend == "vllm-async-engine":
             if vllm_async_llm is None:
@@ -345,12 +343,11 @@ class MinerUClient:
                     raise ValueError("model_path must be provided when vllm_async_llm is None.")
                 from lmdeploy.serve.vl_async_engine import VLAsyncEngine
                 from lmdeploy import PytorchEngineConfig, GenerationConfig
-                import pdb; pdb.set_trace()
                 from lmdeploy.model import ChatTemplateConfig
                 vllm_async_llm = VLAsyncEngine(model_path, backend='pytorch',
                                      backend_config=PytorchEngineConfig(tp=1,
                                      cache_max_entry_count=0.8, max_batch_size=256,
-                                     device_type="ascend", eager_mode=True, session_len=16384))
+                                     device_type="ascend", eager_mode=False, session_len=16384))
 
                 '''
                 try:
@@ -592,11 +589,16 @@ class MinerUClient:
         image: Image.Image,
         priority: int | None = None,
     ) -> list[ContentBlock]:
+        print("layout start", flush=True)
         blocks = self.layout_detect(image, priority)
         block_images, prompts, params, indices = self.helper.prepare_for_extract(image, blocks)
+        print("layout end  ", flush=True)
+        import pdb; pdb.set_trace()
         outputs = self.client.batch_predict(block_images, prompts, params, priority)
         for idx, output in zip(indices, outputs):
             blocks[idx].content = output
+        print("gen end     ", flush=True)
+        print(blocks[0])
         return self.helper.post_process(blocks)
 
     async def aio_two_step_extract(
